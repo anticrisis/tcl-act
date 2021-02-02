@@ -445,32 +445,24 @@ proc util::make_bundle {manifest} {
 }
 
 proc util::exec_tail {args} {
-    # On platforms with `kill`, we can print the output produced by a
-    # process while it's running. Uses globals and vwait, so only one
-    # at a time.
-    if {[util::is_windows]} {
-        exec {*}$args
-    } else {
-        set ::done 0
-        set ::tmp [file tempfile ::tmp_name]
-        set ::pid [exec {*}$args >>& $::tmp_name &]
+    # Uses globals and vwait, so only one at a time.
 
-        chan event $::tmp readable {
-            set l [chan gets $::tmp]
-            if {![chan eof $::tmp]} {
-                puts $l
-            }
-            if {[catch {exec -- kill -0 $::pid}]} {
-                set ::done 1
-            }
+    set ::done 0
+    set ::tmp [open "| $args 2>@1"]
+    chan configure $::tmp -blocking 0 -buffering none
+    chan event $::tmp readable {
+        set l [chan read $::tmp]
+        if {![chan eof $::tmp]} {
+            puts -nonewline $l
+            flush stdout
+        } else {
+            set ::done 1
         }
-        vwait ::done
-        chan close $::tmp
-        file delete $::tmp_name
-        unset ::done
-        unset ::tmp
-        unset ::tmp_name
     }
+    vwait ::done
+    chan close $::tmp
+    unset ::done
+    unset ::tmp
 }
 
 # ----------------------------------------------------------------------------
@@ -488,7 +480,7 @@ proc vcpkg::clone {} {
             exit 1
         }
         puts "Cloning vcpkg into $::opts(vcpkg_dir)..."
-        set res [util::exec_tail -ignorestderr git clone $::opts(vcpkg_repo) $::opts(vcpkg_dir)]
+        set res [util::exec_tail git clone $::opts(vcpkg_repo) $::opts(vcpkg_dir)]
         puts $res
     }
 }
@@ -506,7 +498,7 @@ proc vcpkg::bootstrap {} {
     } else {
         puts "Executing $bootstrap..."
         puts "Compiling may take several minutes."
-        set res [util::exec_tail -ignorestderr $bootstrap]
+        set res [util::exec_tail $bootstrap]
         puts $res
     }
 }
@@ -532,7 +524,7 @@ proc vcpkg::update {} {
         set res [util::exec_tail git -C $::opts(vcpkg_dir) pull]
         puts $res
         puts "Performing vcpkg update"
-        set res [util::exec_tail -ignorestderr $cmd update]
+        set res [util::exec_tail $cmd update]
         puts $res
     }
 }
@@ -556,7 +548,7 @@ proc vcpkg::install {} {
         puts "$cmd install $packages"
     } else {
         puts "Installing packages from $::opts(packages)..."
-        set res [util::exec_tail -ignorestderr $cmd install {*}$packages]
+        set res [util::exec_tail $cmd install {*}$packages]
         puts $res
     }
 }
@@ -615,8 +607,8 @@ proc cmake::build {manifest} {
             puts "cmake --build $build_dir --config $build_type"
             strip
         } else {
-            util::exec_tail -ignorestderr -- cmake -S . -B $build_dir -DCMAKE_BUILD_TYPE=$build_type
-            util::exec_tail -ignorestderr -- cmake --build $build_dir --config $build_type
+            util::exec_tail cmake -S . -B $build_dir -DCMAKE_BUILD_TYPE=$build_type
+            util::exec_tail cmake --build $build_dir --config $build_type
             strip
         }
     }
