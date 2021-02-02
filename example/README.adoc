@@ -1,0 +1,87 @@
+= Examples
+:Author:   anticrisis <https://github.com/anticrisis>
+
+== Initial setup
+
+=== vcpkg
+
+Before building this example, you must have a working `vcpkg`
+installation. You can use the `--vcpkg` option to `act` to point to
+your `vcpkg` directory.
+
+See https://github.com/microsoft/vcpkg. It's very easy to install.
+
+`act` can also clone and bootstrap vcpkg for you if you prefer. Use
+the `act vcpkg setup` command. By default, it will clone to the parent
+of the current directory. If it winds up in the wrong place, you can
+always move it.
+
+NOTE: The CMakeLists.txt in this example looks for vcpkg in the parent
+directory, and the parent's parent. You'll have to modify the file if
+you put your vcpkg somewhere else.
+
+=== libsodium
+
+This example uses `libsodium`, which is a cryptograpy library
+available via vcpkg. Either use `vcpkg install libsodium` from your
+vcpkg directory, or use `act vcpkg install`, which triggers that
+command to install all the packages listed in `packages.txt.`
+
+As a reminder, vcpkg installs everything under the directory where you
+cloned it. It does not install anything anywhere else.
+
+=== Windows Notes
+
+If you're on Windows, `..\act.bat` won't work. Instead, copy the `act`
+and `act.bat` files into the root of the `examples` directory.
+Normally they belong at the root of your project, anyway.
+
+=== Sample session
+
+.Sample Session (Ubuntu 20.04)
+----
+$ cd examples
+$ ../act clean
+$ ../act build manifests/manifest.txt
+-- The CXX compiler identification is GNU 9.3.0
+-- Check for working CXX compiler: /usr/bin/c++
+-- Check for working CXX compiler: /usr/bin/c++ -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found sodium: /home/anticrisis/dev/tcl/vcpkg/installed/x64-linux/include (found version "1.0.18")
+-- Found Tclsh: /bin/tclsh (found version "8.6")
+-- Found TCL: /usr/lib/x86_64-linux-gnu/libtcl8.6.so
+-- Found TCLTK: /usr/lib/x86_64-linux-gnu/libtcl8.6.so
+-- Found TK: /usr/local/lib/libtk8.6.so
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/anticrisis/dev/tcl/tcl-act/example/build
+Scanning dependencies of target cutil
+[ 50%] Building CXX object CMakeFiles/cutil.dir/lib/cutil/lib.cpp.o
+[100%] Linking CXX shared library libexample_cutil.so
+[100%] Built target cutil
+Wrote build/bundle-1.0.tm.
+
+$ tclsh build/bundle-1.0.tm
+$argon2id$v=19$m=65536,t=2,p=1$OzgcrLsVSk3CKXB3ohGGqQ$K4E4Z/AS55JAvucO3Lgv/wDOJIEOstFfRY4t2yyO/2c
+hello from alpha/file1.tcl
+hello from alpha/file2.tcl
+hello from beta/foo.tcl
+hello from beta/bar.tcl
+
+$ ../act install manifests/manifest.txt
+Copying build/bundle-1.0.tm to /home/anticrisis/.tcl/modules/example/bundle-1.0.tm
+
+$ tclsh
+% package require example::bundle
+1.0
+% ::main
+$argon2id$v=19$m=65536,t=2,p=1$xRxQmgFObltw2a2mDRf1Mw$GI2PFYFjzjGTY664ADqvx27SKO+Wl8wED/HlVsCIaFs
+hello from alpha/file1.tcl
+hello from alpha/file2.tcl
+hello from beta/foo.tcl
+hello from beta/bar.tcl
+%
+----

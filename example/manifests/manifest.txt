@@ -1,0 +1,33 @@
+# Versions for Tcl packages included in this module
+.vsn            example::alpha = 0.1
+.vsn            beta = 0.2
+
+# The output artifact to generate
+.out            build/bundle-1.0.tm
+
+# The parent directories within the install directory. This is
+# important because the Tcl module loader interprets nested namespaces
+# as directories. So installing under example/ would allow us to do
+# `package require example::bundle` to load the bundle.
+.install        example/
+
+# Source files for example::alpha package.
+# Require with `package require example::alpha`
+example::alpha  lib/alpha/file1.tcl
+example::alpha  lib/alpha/file2.tcl
+
+# Source files for beta package
+# Require with `package require beta`
+beta            lib/beta/foo.tcl
+beta            lib/beta/bar.tcl
+
+# Assets: included in module verbatim, and accessible via the
+# ::act::assets dict.
+.asset          assets/data.txt
+
+# Source file for main (command line) app
+.source         app/main.tcl
+
+# Note use of two search directories separted by ',', since Windows
+# builds tend to use CMake's Multi-Config generators
+.load           example_cutil = build/, build/Release

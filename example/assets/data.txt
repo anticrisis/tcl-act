@@ -1,0 +1,1 @@
+I am a data file to demonstrate act assets support.

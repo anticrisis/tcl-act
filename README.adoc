@@ -1,0 +1,167 @@
+= act
+:Author:   anticrisis <https://github.com/anticrisis>
+:Revision: 0.1
+
+== Overview
+
+`act` is a build tool for Tcl that simplifies the building and
+packaging of multiple packages and C extensions into a single Tcl
+module file. It runs with a basic installation of Tcl 8.6 and does not
+require VFS or sdx.
+
+In addition, it uses https://cmake.org/[CMake] to generate build files
+and https://github.com/microsoft/vcpkg[vcpkg] to build and easily
+include thousands of C/C++ libraries.
+
+It can also be used without CMake to build pure-Tcl modules.
+
+Compare `act` with the official Tcl
+https://core.tcl-lang.org/sampleextension/[SampleExtension], which
+packages a single extension, does not package Tcl script packages, and
+does not easily integrate with CMake and vcpkg.
+
+== Example
+
+See the `example` directory for a demonstration project that uses
+https://github.com/jedisct1/libsodium[libsodium] to generate password
+hashes.
+
+== Usage
+
+----
+$ ./act clean
+$ ./act build manifest.txt
+$ ./act install manifest.txt (optional)
+----
+
+Or on Windows:
+
+----
+PS> ./act.bat clean
+PS> ./act.bat build manifest.txt
+PS> ./act.bat install manifest.txt (optional)
+----
+
+`act` uses a manifest file to identify the artifacts that will be
+combined into a Tcl module. `act` compresses each artifact using Tcl's
+`zlib` module, which is available as part of a standard 8.6
+distribution. It combines these artifacts into a single `.tm` file,
+along with a loader script. `tm` files can be read by an standard
+interpreter with the `source` command.
+
+`act` generates the necessary `package ifneeded` commands, so no
+`pkgIndex.tcl` files are necessary. (Indeed, they would not work,
+because the `act` loader script sources files from temporary
+locations.)
+
+The manifest may optionally include multiple packages, and each will
+generate its own `package ifneeded`.
+
+The manifest may also include multiple native extensions, which are
+loaded by the loader script with the `load` command.
+
+And finally, the manifest may also include non-package scripts to be
+loaded after everything else. This can be used to run a `main.tcl`
+script if desired.
+
+=== Loading order
+
+The loader first executes `load` on all shared libraries found in the
+module. Then it executes `source` on all files associated with a
+package, in the order in which they appear in the manifest. It repeats
+this for each package, in order. Finally, it executes `source` on each
+script found in the manifest not associated with a package, in order.
+
+=== Manifest format
+
+The manifest format is based on HTTP headers, except the colon is not
+used to separate keys and values, since the colon is significant in
+Tcl namespace names.
+
+Each line in the manifest includes a key and a value, separated by
+whitespace. Reserved keys start with a dot (`.`). Comments start with
+a `#`. All other keys are interpreted as a package name.
+
+Package names may include `::` namespace specifiers, e.g.
+`myorg::mylib`. This is not required, but it's nice if you want to
+avoid name collisions with other community-developed packages.
+
+The values of some reserved keys require their own key/value
+declarations. In those cases, the `=` sign is used. For example:
+
+----
+.vsn  myorg::mylib=1.2
+.vsn  myorg::util=2.0
+----
+
+declares a version ('`vsn`') value of `1.2` for the `myorg::mylib` package,
+and `2.0` for the `myorg::util` lib.
+
+The `.load` key accepts the root name of a `load`-able binary, and a
+list of search directories, separated by commas. `act` will try to
+find the library using the current system's shared library extension,
+with or without `lib` prepended to the root name.
+
+==== Keys
+
+[options=header]
+|=============================================================================
+| Key        | Sample Value       | Meaning
+| `.vsn`     | `mylib=1.2`        | `mylib` package has version `1.2`
+| `.out`     | `build/app-1.0.tm` | Path to output artifact.
+| `.load`    | `mycext=build,
+                build/Release`    | Dirs to search for `mycext` shared library.
+| `.source`  | `src/main.tcl`     | Source `src/main.tcl` after everything else.
+| `.asset`   | `assets/data.txt`  | Include files verbatim, accessible via
+                                    the `::act::assets` dict
+| `.install` | `myorg/`           | Parent dir(s) of module when installed.
+| _pkgname_  | `lib/lib.tcl`      | Include `lib/lib.tcl` in _pkgname_ package.
+|=============================================================================
+
+.Sample manifest
+----
+# Versions for Tcl packages included in this module
+.vsn            example::alpha = 0.1
+.vsn            beta = 0.2
+
+# The output artifact to generate
+.out            build/bundle-1.0.tm
+
+# The parent directories within the install directory. This is
+# important because the Tcl module loader interprets nested namespaces
+# as directories. So installing under example/ would allow us to do
+# `package require example::bundle` to load the bundle.
+.install        example/
+
+# Source files for example::alpha package.
+# Require with `package require example::alpha`
+example::alpha  lib/alpha/file1.tcl
+example::alpha  lib/alpha/file2.tcl
+
+# Source files for beta package
+# Require with `package require beta`
+beta            lib/beta/foo.tcl
+beta            lib/beta/bar.tcl
+
+# Assets: included in module verbatim, and accessible via the
+# ::act::assets dict.
+.asset          assets/data.txt
+
+# Source file for main (command line) app
+.source         app/main.tcl
+
+# Note use of two search directories separted by ',', since Windows
+# builds tend to use CMake's Multi-Config generators
+.load           example_cutil = build/, build/Release
+----
+
+==== Cleanup
+
+Call `::act::cleanup` before exiting your program to remove files
+created by `act` in the system's temporary directory. They are not
+deleted immediately in case you need to make them available to a child
+thread.
+
+== License
+
+Licensed under the BSD 2-Clause license.
