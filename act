@@ -101,6 +101,7 @@ proc usage {} {
 
 if {$::opts(help)} {usage; exit 0}
 
+
 proc verbose {msg} {if {$::opts(verbose)} {puts $msg}}
 
 # ----------------------------------------------------------------------------
@@ -698,6 +699,10 @@ proc system::main {words} {
     }
 }
 
+# ----------------------------------------------------------------------------
+
+# Set Env VCPKG_ROOT to match vcpkg_dir, so CMakeLists.txt can find it
+set ::env(VCPKG_ROOT) $::opts(vcpkg_dir)
 
 # require git
 verbose {Checking output of 'git version'... }
