@@ -48,7 +48,7 @@ PS> ./act.bat install manifest.txt (optional)
 combined into a Tcl module. `act` compresses each artifact using Tcl's
 `zlib` module, which is available as part of a standard 8.6
 distribution. It combines these artifacts into a single `.tm` file,
-along with a loader script. `tm` files can be read by an standard
+along with a loader script. `tm` files can be read by any standard
 interpreter with the `source` command.
 
 `act` generates the necessary `package ifneeded` commands, so no
@@ -62,17 +62,22 @@ generate its own `package ifneeded`.
 The manifest may also include multiple native extensions, which are
 loaded by the loader script with the `load` command.
 
+The manifest may include asset files, which are made available to your
+program through the `::act::assets` dict. (See the example.)
+
 And finally, the manifest may also include non-package scripts to be
 loaded after everything else. This can be used to run a `main.tcl`
 script if desired.
 
 === Loading order
 
-The loader first executes `load` on all shared libraries found in the
-module. Then it executes `source` on all files associated with a
-package, in the order in which they appear in the manifest. It repeats
-this for each package, in order. Finally, it executes `source` on each
-script found in the manifest not associated with a package, in order.
+The loader first unpacks any asset files and adds them to the
+`::act::assets` dict. Then it executes `load` on all shared libraries
+found in the module. Next it executes `source` on all files associated
+with a package, in the order in which they appear in the manifest. It
+repeats this for each package, in order. Finally, it executes `source`
+on each script found in the manifest not associated with a package, in
+order.
 
 === Manifest format
 
@@ -152,7 +157,7 @@ beta            lib/beta/bar.tcl
 # Source file for main (command line) app
 .source         app/main.tcl
 
-# Note use of two search directories separted by ',', since Windows
+# Note use of two search directories separated by ',', since Windows
 # builds tend to use CMake's Multi-Config generators
 .load           example_cutil = build/, build/Release
 ----

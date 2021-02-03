@@ -28,6 +28,6 @@ beta            lib/beta/bar.tcl
 # Source file for main (command line) app
 .source         app/main.tcl
 
-# Note use of two search directories separted by ',', since Windows
+# Note use of two search directories separated by ',', since Windows
 # builds tend to use CMake's Multi-Config generators
 .load           example_cutil = build/, build/Release
