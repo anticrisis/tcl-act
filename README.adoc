@@ -73,11 +73,10 @@ script if desired.
 
 The loader first unpacks any asset files and adds them to the
 `::act::assets` dict. Then it executes `load` on all shared libraries
-found in the module. Next it executes `source` on all files associated
-with a package, in the order in which they appear in the manifest. It
-repeats this for each package, in order. Finally, it executes `source`
-on each script found in the manifest not associated with a package, in
-order.
+found in the module. Next, it issues a `package ifneeded` command for
+each package with source files in the manifest. Finally, it executes
+`source` on each script found in the manifest not associated with a
+package, in order.
 
 === Manifest format
 
