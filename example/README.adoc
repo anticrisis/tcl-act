@@ -16,10 +16,6 @@ the `act vcpkg setup` command. By default, it will clone to the parent
 of the current directory. If it winds up in the wrong place, you can
 always move it.
 
-NOTE: The CMakeLists.txt in this example looks for vcpkg in the parent
-directory, and the parent's parent. You'll have to modify the file if
-you put your vcpkg somewhere else.
-
 === libsodium
 
 This example uses `libsodium`, which is a cryptograpy library
@@ -32,8 +28,9 @@ cloned it. It does not install anything anywhere else.
 
 === Windows Notes
 
-If you're on Windows, `..\act.bat` won't work. Instead, copy the `act`
-and `act.bat` files into the root of the `examples` directory.
+If you're on Windows, `..\act.bat` won't work, because the batch file
+looks for the `act` script in the current directory. Instead, copy the
+`act` and `act.bat` files into the root of the `examples` directory.
 Normally they belong at the root of your project, anyway.
 
 === Sample session
@@ -42,7 +39,7 @@ Normally they belong at the root of your project, anyway.
 ----
 $ cd examples
 $ ../act clean
-$ ../act build manifests/manifest.txt
+$ ../act build manifests/manifest.txt --vcpkg ../../../vcpkg/
 -- The CXX compiler identification is GNU 9.3.0
 -- Check for working CXX compiler: /usr/bin/c++
 -- Check for working CXX compiler: /usr/bin/c++ -- works
@@ -50,7 +47,7 @@ $ ../act build manifests/manifest.txt
 -- Detecting CXX compiler ABI info - done
 -- Detecting CXX compile features
 -- Detecting CXX compile features - done
--- Found sodium: /home/anticrisis/dev/tcl/vcpkg/installed/x64-linux/include (found version "1.0.18")
+-- Found sodium: /home/anticrisis/dev/vcpkg/installed/x64-linux/include (found version "1.0.18")
 -- Found Tclsh: /bin/tclsh (found version "8.6")
 -- Found TCL: /usr/lib/x86_64-linux-gnu/libtcl8.6.so
 -- Found TCLTK: /usr/lib/x86_64-linux-gnu/libtcl8.6.so
@@ -63,25 +60,27 @@ Scanning dependencies of target cutil
 [100%] Linking CXX shared library libexample_cutil.so
 [100%] Built target cutil
 Wrote build/bundle-1.0.tm.
-
 $ tclsh build/bundle-1.0.tm
-$argon2id$v=19$m=65536,t=2,p=1$OzgcrLsVSk3CKXB3ohGGqQ$K4E4Z/AS55JAvucO3Lgv/wDOJIEOstFfRY4t2yyO/2c
+$argon2id$v=19$m=65536,t=2,p=1$0EBMEuhejmVKm3tSDKneHA$ErSsjy+U89wF+dvUWVwWhzNJyRZ96XAyT6dOhQP4WKc
 hello from alpha/file1.tcl
 hello from alpha/file2.tcl
 hello from beta/foo.tcl
 hello from beta/bar.tcl
+I am a data file to demonstrate act assets support.
 
 $ ../act install manifests/manifest.txt
 Copying build/bundle-1.0.tm to /home/anticrisis/.tcl/modules/example/bundle-1.0.tm
-
 $ tclsh
 % package require example::bundle
 1.0
 % ::main
-$argon2id$v=19$m=65536,t=2,p=1$xRxQmgFObltw2a2mDRf1Mw$GI2PFYFjzjGTY664ADqvx27SKO+Wl8wED/HlVsCIaFs
+$argon2id$v=19$m=65536,t=2,p=1$8VZlPzB/zMW20hOEozxx3w$dX/KeDdHScjPceXpEkMIPWdcru7hfN97VjGBM/BaH2Q
 hello from alpha/file1.tcl
 hello from alpha/file2.tcl
 hello from beta/foo.tcl
 hello from beta/bar.tcl
+I am a data file to demonstrate act assets support.
+
+% ::act::cleanup
 %
 ----
