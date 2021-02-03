@@ -341,6 +341,10 @@ proc util::make_bundle {manifest} {
         # emit package ifneeded for each package we loaded
         dict for {pkg data} $packages {
             if {![dict exists $data files]} {continue}
+            if {![dict exists $data version]} {
+                puts "ERROR: missing .vsn for package $pkg"
+                exit 1
+            }
             set loads [list uplevel #0                                      \
                            [list foreach f [list {*}[dict get $data files]] \
                                {source $f}]]
