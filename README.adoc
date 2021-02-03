@@ -1,6 +1,6 @@
 = act
 :Author:   anticrisis <https://github.com/anticrisis>
-:Revision: 0.1
+:Version: 0.1
 
 == Overview
 
@@ -25,6 +25,8 @@ does not easily integrate with CMake and vcpkg.
 See the `example` directory for a demonstration project that uses
 https://github.com/jedisct1/libsodium[libsodium] to generate password
 hashes.
+
+This example has been tested on Linux with gcc and Windows with msvc.
 
 == Usage
 
@@ -157,10 +159,8 @@ beta            lib/beta/bar.tcl
 
 ==== Cleanup
 
-Call `::act::cleanup` before exiting your program to remove files
-created by `act` in the system's temporary directory. They are not
-deleted immediately in case you need to make them available to a child
-thread.
+Call `::act::cleanup` to remove files created by `act` in the system's
+temporary directory.
 
 == License
 
