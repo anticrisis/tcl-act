@@ -42,11 +42,12 @@ array set opts {
     vcpkg_dir    ""
     dry_run      0
     packages     "packages.txt"
+    triplet      ""
 }
 
 # Try to be clever finding an existing vcpkg directory in typical
 # locations
-set paths {.. ../.. .}
+set paths {.. ../.. ../../.. .}
 foreach parent $paths {
     set path [file normalize [file join [pwd] {*}$parent vcpkg]]
     if {[file exists $path]} {
@@ -72,6 +73,7 @@ for {set i 0} {$i < $argc} {incr i} {
         "--vcpkg-repo" {set opts(vcpkg_repo) [lindex $argv [incr i]]}
         "--dry-run"    {set opts(dry_run) 1}
         "--packages"   {set opts(packages) [lindex $argv [incr i]]}
+        "--triplet"    {set opts(triplet)  [lindex $argv [incr i]]}
         default {
             lappend commands [lindex $argv $i]
         }
@@ -97,6 +99,7 @@ proc usage {} {
     puts "    --vcpkg-repo              URL to git clone"
     puts "    --dry-run                 Do nothing, output commands"
     puts "    --packages                Alternate packages.txt file"
+    puts "    --triplet                 Set VCPKG_DEFAULT_TRIPLET
 }
 
 if {$::opts(help)} {usage; exit 0}
@@ -208,7 +211,17 @@ proc util::make_bundle {manifest} {
 
     set md [read_manifest $manifest]
 
-    # create load script for module
+    # Create load script for module. Windows .bat adaptor at the end of this proc.
+    # Include a sh executable header so the bundle can be invoked directly if desired.
+    set sh_header "#!/bin/sh\n# "
+    append sh_header [format %c 92] ;# backslash
+    append sh_header "\n"
+    append sh_header {command -v tclsh > /dev/null 2>&1 || { echo "Can't find tclsh on your path."; exit 1;} # }
+    append sh_header [format %c 92]
+    append sh_header "\n"
+    append sh_header {exec tclsh "$0" ${1+"$@"}}
+
+    # The actual load script
     set script {
         namespace eval ::act {
             set ::act::assets   [dict create]
@@ -216,7 +229,7 @@ proc util::make_bundle {manifest} {
 
             proc cleanup {} {
                 dict for {name tmpname} $::act::assets {file delete $tmpname}
-                foreach f $::act::tmpfiles {file delete $f}
+                foreach f $::act::tmpfiles {catch {file delete $f}}
             }
         }
 
@@ -335,7 +348,7 @@ proc util::make_bundle {manifest} {
             set filename  [lindex $val 1]
 
             uplevel #0 [list load $filename $pkg_name]
-            file delete $filename
+            lappend ::act::tmpfiles $filename
         }
 
         # emit package ifneeded for each package we loaded
@@ -358,7 +371,7 @@ proc util::make_bundle {manifest} {
             lappend ::act::tmpfiles $f
             uplevel #0 [list source $f]
         }
-    }
+    } ;# script
 
     # scan manifest to find the target filename
     set target ""
@@ -377,6 +390,7 @@ proc util::make_bundle {manifest} {
     # create module, write the loader script
     set f [open $target wb]
     chan configure $f -translation lf
+    chan puts $f $sh_header
     chan puts $f $script
     chan configure $f -translation binary
     chan puts -nonewline $f "\032"
@@ -446,6 +460,29 @@ proc util::make_bundle {manifest} {
 
     close $f
     puts "Wrote $target."
+
+    # Include a Windows batch file
+    if {[util::is_windows]} {
+        set module_file [file tail $target]
+        set bat_file [subst -nocommands {
+            ::if no {
+            @tclsh "%~f0" %*
+            @goto :eof
+            }
+            # This Windows batch file simply executes act
+            # Do not change anything above this comment.
+
+            source $module_file
+            # end tcl }]
+        append bat_file [format %c 92] ;# backslash
+        append bat_file "\n:eof"
+
+        set bat_path [file join [file dirname $target] "${module_file}.bat"]
+        set f [open $bat_path w]
+        puts $f $bat_file
+        close $f
+        puts "Wrote $bat_path."
+    }
 }
 
 proc util::exec_tail {args} {
@@ -699,6 +736,21 @@ proc system::main {words} {
 
 # Set Env VCPKG_ROOT to match vcpkg_dir, so CMakeLists.txt can find it
 set ::env(VCPKG_ROOT) $::opts(vcpkg_dir)
+
+# Set --triplet option VCPKG_DEFAULT_TRIPLET
+if {$::opts(triplet) ne ""} {
+    set ::env(VCPKG_DEFAULT_TRIPLET) "$::opts(triplet)"
+}
+
+# On Windows, we generally want to link our dependencies statically, because
+# it's too hard to make sure they're found in the Windows search path. If the
+# --triplet option isn't set, we'll set it here to tell VCPKG we want to
+# static libraries
+if {[util::is_windows]} {
+    if {$::opts(triplet) eq ""} {
+        set ::env(VCPKG_DEFAULT_TRIPLET) x64-windows-static
+    }
+}
 
 # require git
 verbose {Checking output of 'git version'... }
