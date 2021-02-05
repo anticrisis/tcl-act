@@ -214,12 +214,29 @@ proc util::make_bundle {manifest} {
     # Create load script for module. Windows .bat adaptor at the end of this proc.
     # Include a sh executable header so the bundle can be invoked directly if desired.
     set sh_header "#!/bin/sh\n# "
-    append sh_header [format %c 92] ;# backslash
+    set backslash [format %c 92]
+    append sh_header $backslash
     append sh_header "\n"
     append sh_header {command -v tclsh > /dev/null 2>&1 || { echo "Can't find tclsh on your path."; exit 1;} # }
-    append sh_header [format %c 92]
+    append sh_header $backslash
     append sh_header "\n"
     append sh_header {exec tclsh "$0" ${1+"$@"}}
+
+    # The bootstrap script
+    set boot {proc extract {f len} {
+chan configure $f -blocking 1 -translation binary
+set raw [read $f $len]
+set tmp [file tempfile tmpname]
+chan configure $tmp -translation binary
+chan puts -nonewline $tmp [zlib decompress $raw]
+close $tmp; chan read $f 1
+return $tmpname}
+set path [info script]; set f [open $path rb]
+chan configure $f -translation binary -eofchar "\032"
+while {![eof $f]} {read $f}; chan configure $f -eofchar ""
+read $f 1; chan configure $f -translation lf
+set len [chan gets $f]; set loadername [extract $f $len]
+source $loadername; file delete $loadername; loader $f}
 
     # The actual load script
     set script {
@@ -239,136 +256,127 @@ proc util::make_bundle {manifest} {
             list  [string trim $l] [string trim $r]
         }
 
-        set path [info script]
-        set f [open $path rb]
+        proc loader {f} {
+            # set up state
+            set source_files {}
+            set load_files   {}
+            set asset_files  {}
+            set packages     [dict create]
 
-        # read to control-z
-        chan configure $f -translation binary -eofchar "\032"
-        while {![eof $f]} {
-            read $f
-        }
-        chan configure $f -eofchar ""
-        read $f 1
+            while {![chan eof $f]} {
+                chan configure $f -translation lf
+                set line [chan gets $f]
+                if {$line eq ""} {continue}
+                foreach {k v} [split1 " " $line] {
+                    set type [string tolower $k]
+                    set val  $v
+                }
+                switch -- $type {
+                    .source {
+                        set name ""
+                        set len  $val
+                    }
+                    .load {
+                        foreach {k v} [split1 = $val] {
+                            set name $k
+                            set len  $v
+                        }
+                    }
+                    .vsn {
+                        foreach {pkg vsn} [split1 = $val] {
+                            dict set packages $pkg version $vsn
+                        }
+                        continue
+                    }
+                    .asset {
+                        foreach {k v} [split1 = $val] {
+                            set name $k
+                            set len  $v
+                        }
+                    }
+                    default {
+                        set name ""
+                        set len  $val
+                    }}
 
-        # set up state
-        set source_files {}
-        set load_files   {}
-        set asset_files  {}
-        set packages     [dict create]
+                # read bytes to temp file
+                chan configure $f -translation binary
+                set tmp [file tempfile rawtempfile]
+                chan configure $tmp -translation binary
+                chan copy $f $tmp -size $len
+                close $tmp
 
-        while {![chan eof $f]} {
-            chan configure $f -translation lf
-            set line [chan gets $f]
-            if {$line eq ""} {continue}
-            foreach {k v} [split1 " " $line] {
-                set type [string tolower $k]
-                set val  $v
+                # read file into memory
+                set raw [open $rawtempfile rb]
+                chan configure $raw -translation binary
+                set rawdata [read $raw]
+                close $raw
+                file delete $rawtempfile
+
+                # decompress to new temp file
+                set tmp [file tempfile tmpname]
+                chan configure $tmp -translation binary
+                chan puts -nonewline $tmp [zlib decompress $rawdata]
+                close $tmp
+
+                # skip extra byte
+                chan read $f 1
+
+                # save file info to state
+                switch -- $type {
+                    .source  {lappend source_files $tmpname}
+                    .load    {lappend load_files   [list $name $tmpname]}
+                    .asset   {lappend asset_files  [list $name $tmpname]}
+                    .vsn     {}
+                    default  {
+                        if {[dict exists $packages $type files]} {
+                            set files [dict get $packages $type files]
+                        } else {
+                            set files {}
+                        }
+                        lappend files $tmpname
+                        dict set packages $type files $files
+                    }}}
+
+            # done reading, close file
+            close $f
+
+            # now load everything: first assets, then all binaries via
+            # load, then packages, then non-package sources.
+            foreach val $asset_files {
+                set asset_name  [lindex $val 0]
+                set filename    [lindex $val 1]
+
+                dict set ::act::assets $asset_name $filename
             }
-            switch -- $type {
-                .source {
-                    set name ""
-                    set len  $val
-                }
-                .load {
-                    foreach {k v} [split1 = $val] {
-                        set name $k
-                        set len  $v
-                    }
-                }
-                .vsn {
-                    foreach {pkg vsn} [split1 = $val] {
-                        dict set packages $pkg version $vsn
-                    }
-                    continue
-                }
-                .asset {
-                    foreach {k v} [split1 = $val] {
-                        set name $k
-                        set len  $v
-                    }
-                }
-                default {
-                    set name ""
-                    set len  $val
-                }}
 
-            # read bytes to temp file
-            chan configure $f -translation binary
-            set tmp [file tempfile rawtempfile]
-            chan configure $tmp -translation binary
-            chan copy $f $tmp -size $len
-            close $tmp
+            foreach val $load_files {
+                set pkg_name  [lindex $val 0]
+                set filename  [lindex $val 1]
 
-            # read file into memory
-            set raw [open $rawtempfile rb]
-            chan configure $raw -translation binary
-            set rawdata [read $raw]
-            close $raw
-            file delete $rawtempfile
-
-            # decompress to new temp file
-            set tmp [file tempfile tmpname]
-            chan configure $tmp -translation binary
-            chan puts -nonewline $tmp [zlib decompress $rawdata]
-            close $tmp
-
-            # skip extra byte
-            chan read $f 1
-
-            # save file info to state
-            switch -- $type {
-                .source  {lappend source_files $tmpname}
-                .load    {lappend load_files   [list $name $tmpname]}
-                .asset   {lappend asset_files  [list $name $tmpname]}
-                .vsn     {}
-                default  {
-                    if {[dict exists $packages $type files]} {
-                        set files [dict get $packages $type files]
-                    } else {
-                        set files {}
-                    }
-                    lappend files $tmpname
-                    dict set packages $type files $files
-                }}}
-
-        # done reading, close file
-        close $f
-
-        # now load everything: first assets, then all binaries via
-        # load, then packages, then non-package sources.
-        foreach val $asset_files {
-            set asset_name  [lindex $val 0]
-            set filename    [lindex $val 1]
-
-            dict set ::act::assets $asset_name $filename
-        }
-
-        foreach val $load_files {
-            set pkg_name  [lindex $val 0]
-            set filename  [lindex $val 1]
-
-            uplevel #0 [list load $filename $pkg_name]
-            lappend ::act::tmpfiles $filename
-        }
-
-        # emit package ifneeded for each package we loaded
-        dict for {pkg data} $packages {
-            if {![dict exists $data files]} {continue}
-            if {![dict exists $data version]} {
-                puts "ERROR: missing .vsn for package $pkg"
-                exit 1
+                uplevel #0 [list load $filename $pkg_name]
+                lappend ::act::tmpfiles $filename
             }
-            set loads [list uplevel #0 [list foreach f [list {*}[dict get $data files]] {source $f}]]
 
-            package ifneeded $pkg [dict get $data version] $loads
-            lappend ::act::tmpfiles {*}[dict get $data files]
-        }
+            # emit package ifneeded for each package we loaded
+            dict for {pkg data} $packages {
+                if {![dict exists $data files]} {continue}
+                if {![dict exists $data version]} {
+                    puts "ERROR: missing .vsn for package $pkg"
+                    exit 1
+                }
+                set loads [list uplevel #0 [list foreach f [list {*}[dict get $data files]] {source $f}]]
 
-        # load non-package sources
-        foreach f $source_files {
-            lappend ::act::tmpfiles $f
-            uplevel #0 [list source $f]
-        }
+                package ifneeded $pkg [dict get $data version] $loads
+                lappend ::act::tmpfiles {*}[dict get $data files]
+            }
+
+            # load non-package sources
+            foreach f $source_files {
+                lappend ::act::tmpfiles $f
+                uplevel #0 [list source $f]
+            }
+        } ;# loader
     } ;# script
 
     # scan manifest to find the target filename
@@ -389,9 +397,21 @@ proc util::make_bundle {manifest} {
     set f [open $target wb]
     chan configure $f -translation lf
     chan puts $f $sh_header
-    chan puts $f $script
+
+    # place bootstrap script
+    chan puts $f $boot
     chan configure $f -translation binary
     chan puts -nonewline $f "\032"
+
+    # compress and place loader script
+    set loader [zlib compress $script 9]
+    set len    [string length $loader]
+    chan puts -nonewline $f "$len\n"
+    chan puts -nonewline $f $loader
+
+    # each compressed chunk is followed by a newline, just to make the
+    # file a bit easier to look at in emacs
+    chan puts $f "\n"
 
     # process the manifest
     dict for {type value_list} $md {
@@ -472,7 +492,7 @@ proc util::make_bundle {manifest} {
 
             source $module_file
             # end tcl }]
-        append bat_file [format %c 92] ;# backslash
+        append bat_file $backslash
         append bat_file "\n:eof"
 
         set bat_path [file join [file dirname $target] "${module_file}.bat"]
