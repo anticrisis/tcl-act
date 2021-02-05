@@ -358,9 +358,7 @@ proc util::make_bundle {manifest} {
                 puts "ERROR: missing .vsn for package $pkg"
                 exit 1
             }
-            set loads [list uplevel #0                                      \
-                           [list foreach f [list {*}[dict get $data files]] \
-                               {source $f}]]
+            set loads [list uplevel #0 [list foreach f [list {*}[dict get $data files]] {source $f}]]
 
             package ifneeded $pkg [dict get $data version] $loads
             lappend ::act::tmpfiles {*}[dict get $data files]
