@@ -137,7 +137,10 @@ random_bytes(ClientData cd, Tcl_Interp* i, int objc, Tcl_Obj* const objv[])
   }
 
   auto out = crypto::random_bytes(*len);
-  Tcl_SetObjResult(i, Tcl_NewStringObj(out.data(), out.size()));
+  Tcl_SetObjResult(
+    i,
+    Tcl_NewByteArrayObj(reinterpret_cast<const unsigned char*>(out.data()),
+                        out.size()));
   return TCL_OK;
 }
 
