@@ -609,7 +609,7 @@ namespace eval cmake {}
 
 proc cmake::strip {} {
     global build_dir
-
+    if {[util::is_windows]} return
     foreach f [glob -nocomplain -directory $build_dir *[info sharedlibextension]] {
         if {$::opts(dry_run)} {
             puts "strip $f"
