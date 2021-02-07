@@ -1,0 +1,6 @@
+.vsn    hello = 1.0
+.out    hello-1.0.tm
+
+hello   hello.tcl
+
+.source main.tcl

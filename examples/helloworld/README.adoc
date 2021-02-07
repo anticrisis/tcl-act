@@ -1,0 +1,16 @@
+= helloworld
+
+This bundle provides a `hello` package in `hello.tcl` and a main
+program in `main.tcl`.
+
+----
+$ ./act build manifest.txt
+$ tclsh hello-1.0.tm
+----
+
+On Windows:
+
+----
+PS> .\act.bat build manifest.txt
+PS> .\hello-1.0.tm.bat
+----
