@@ -13,16 +13,17 @@ In addition, it uses https://cmake.org/[CMake] to generate build files
 and https://github.com/microsoft/vcpkg[vcpkg] to build and easily
 include thousands of C/C++ libraries.
 
-It can also be used without CMake to build pure-Tcl modules.
+It can also be used without CMake to build and deliver pure-Tcl
+modules as a single file which obfuscates the source code.
 
 Compare `act` with the official Tcl
 https://core.tcl-lang.org/sampleextension/[SampleExtension], which
 packages a single extension, does not package Tcl script packages, and
 does not easily integrate with CMake and vcpkg.
 
-== Example
+== Examples
 
-See the `example` directory for a demonstration project that uses
+See the `examples` directory for a demonstration project that uses
 https://github.com/jedisct1/libsodium[libsodium] to generate password
 hashes.
 
@@ -124,7 +125,17 @@ with or without `lib` prepended to the root name.
 | _pkgname_  | `lib/lib.tcl`      | Include `lib/lib.tcl` in _pkgname_ package.
 |=============================================================================
 
-.Sample manifest
+.Simple manifest
+----
+.vsn    hello = 1.0
+.out    hello-1.0.tm
+
+hello   hello.tcl
+
+.source main.tcl
+----
+
+.Extension manifest
 ----
 # Versions for Tcl packages included in this module
 .vsn            example::alpha = 0.1

@@ -6,6 +6,9 @@ program in `main.tcl`.
 ----
 $ ./act build manifest.txt
 $ tclsh hello-1.0.tm
+$ chmod +x hello-1.0.tm
+$ ./hello-1.0.tm
+
 ----
 
 On Windows:
