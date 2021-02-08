@@ -99,7 +99,7 @@ proc usage {} {
     puts "    --vcpkg-repo              URL to git clone"
     puts "    --dry-run                 Do nothing, output commands"
     puts "    --packages                Alternate packages.txt file"
-    puts "    --triplet                 Set VCPKG_DEFAULT_TRIPLET
+    puts "    --triplet                 Set VCPKG_DEFAULT_TRIPLET"
 }
 
 if {$::opts(help)} {usage; exit 0}
